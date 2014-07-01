@@ -33,9 +33,6 @@ typedef struct
     /* EcuMDefaultShutdwonTarget */
     EcuM_StateType       EcuMDefaultState;    
     uint8                EcuMSleepModeId;
-
-
-
 } EcuM_PBConfigType;
 
 
