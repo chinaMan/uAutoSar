@@ -59,7 +59,7 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitZero(void);
  * @Return       None
  *********************************************************************/
 EXTERN FUNC(P2VAR(EcuM_ConfigType, ECUM_APPL_DATA), ECUM_CODE) 
-EcuM_DeterminePbConfiguration(void);
+    EcuM_DeterminePbConfiguration(void);
 
 /**********************************************************************
  * @brief        this callout shall provide driver initialization and 

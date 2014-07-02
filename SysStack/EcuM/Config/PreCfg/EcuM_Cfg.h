@@ -40,8 +40,7 @@
  * Variants Class (PC, PB)
  */
 #define ECUM_VARIANT_PC                VARIANT_PRE_COMPILE
-#define ECUM_VARIANT_PB                VARIANT_POST_BUILD
-#define ECUM_VARIANT_CFG               ECUM_VARIANT_PB
+#define ECUM_VARIANT_CFG               ECUM_VARIANT_PC
 
 /*
  * EcuMGeneral

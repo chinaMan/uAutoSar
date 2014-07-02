@@ -44,6 +44,7 @@ typedef uint8 EcuM_StateType;
 #define ECUM_STATE_WAKEUPSLEEP        0x25U
 /* sub state of run */                    
 #define ECUM_STATE_APP_RUN            0x32U
+#define ECUM_STATE_APP_POST_RUN       0x33U
 /* sub state of shutdown */               
 #define ECUM_STATE_PRE_SHUTDOWN       0x44U
 #define ECUM_STATE_GO_SLEEP           0x49U
@@ -104,6 +105,12 @@ typedef enum
     /* ECU will boot into the bootloader */
     ECUM_BOOT_TARGET_BOOTLOADER
 } EcuM_BootTargetType;
+
+typedef struct
+{
+    EcuM_StateType   State;
+    uint8            SleepModeId;
+} EcuM_ShutdownTargetType;
 
 /*========================[API PROTYPE]===============================*/
 /**********************************************************************
