@@ -35,6 +35,9 @@ typedef struct
 
     uint8                     ComMChState[ECUM_COMM_CHANNEL_MAX];
     uint8                     ComMReqCount;
+
+    OsAppMode                 AppMode;
+    EcuM_BootTargetType       BootTarget; 
 } EcuM_RtType;
 
 /*========================[INTERNAL STATIC DTAT]========================*/
@@ -806,7 +809,24 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_GetLastShutdownTarget
  * @Return       EcuM_WakeupSourceType: all wakeup events
  *********************************************************************/
 FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetPendingWakeupEvents(void)
-{}
+{
+    EcuM_WakeupSourceType wakeupSource = ECUM_WKSOURCE_NONE;
+
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETPENDINGWAKEUPEVENTS, ECUM_E_NOT_INITED);
+        return wakeupSource;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    wakeupSource = EcuM_Module.PendingWks;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return wakeupSource;
+}
 
 /**********************************************************************
  * @brief        clears wakeup events
@@ -821,7 +841,22 @@ FUNC(void, ECUM_CODE) EcuM_ClearWakeupEvent
 (
     EcuM_WakeupSourceType sources
 )
-{}
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_CLEARWAKEUPEVENT, ECUM_E_NOT_INITED);
+        return;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    EcuM_Module.ValidatedWks &= (~sources);
+    EcuM_Module.PendingWks   &= (~sources);
+    EcuM_Module.ExpiredWks   &= (~sources);
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+}
 
 /**********************************************************************
  * @brief        gets validated wakeup events
@@ -833,7 +868,24 @@ FUNC(void, ECUM_CODE) EcuM_ClearWakeupEvent
  * @Return       EcuM_WakeupSourceType
  *********************************************************************/
 FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetValidatedWakeupEvents(void)
-{}
+{
+    EcuM_WakeupSourceType wakeupSource = ECUM_WKSOURCE_NONE;
+
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETVALIDATEDWAKEUPEVENTS, ECUM_E_NOT_INITED);
+        return wakeupSource;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    wakeupSource = EcuM_Module.ValidatedWks;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return wakeupSource;
+}
 
 /**********************************************************************
  * @brief        gets expired wakeup events
@@ -845,7 +897,24 @@ FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetValidatedWakeupEvents(void)
  * @Return       EcuM_WakeupSourceType
  *********************************************************************/
 FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetExpiredWakeupEvents(void)
-{}
+{
+    EcuM_WakeupSourceType wakeupSource = ECUM_WKSOURCE_NONE;
+
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETEXPIREDWAKEUPEVENTS, ECUM_E_NOT_INITED);
+        return wakeupSource;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    wakeupSource = EcuM_Module.ExpiredWks;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return wakeupSource;
+}
 
 /**********************************************************************
  * @brief        sum status shall be computed according to the following
@@ -858,11 +927,50 @@ FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetExpiredWakeupEvents(void)
  * @Return       EcuM_WakeupStatusType: sum status of all wakeup sources
  *               passed in the in parameter
  *********************************************************************/
-FUNC(EcuM_WakeupSourceType, ECUM_CODE) EcuM_GetStatusOfWakeupSource
+FUNC(EcuM_WakeupStatusType, ECUM_CODE) EcuM_GetStatusOfWakeupSource
 (
     EcuM_WakeupSourceType sources
 )
-{}
+{
+    EcuM_WakeupStatusType status;
+
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETSTATUSOFWAKEUPSOURCE, ECUM_E_NOT_INITED);
+        return ECUM_WKSOURCE_NONE;
+    }
+    else if (ECUM_WKSOURCE_NONE != (source & (~ECUM_ALL_WKSOURCE)))
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETSTATUSOFWAKEUPSOURCE, ECUM_E_UNKNOWN_WAKEUP_SOURCE);
+        return ECUM_WKSOURCE_NONE;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    if (ECUM_WKSOURCE_NONE != EcuM_Module.ValidatedWks & sources)
+    {
+        status = ECUM_WKSTATUS_VALIDATED;
+    }
+    else if (ECUM_WKSOURCE_NONE != EcuM_Module.PendingWks & sources)
+    {
+        status = ECUM_WKSTATUS_PENDING;
+    }
+    else if (ECUM_WKSOURCE_NONE != EcuM_Module.ExpiredWks & sources)
+    {
+        status = ECUM_WKSTATUS_EXPIRED;
+    }
+    else
+    {
+        status = ECUM_WKSTATUS_NONE;
+    }
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return wakeupSource;
+
+}
 
 /**********************************************************************
  * @brief        implementation should store the application mode 
@@ -879,7 +987,22 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_SelectApplicationMode
 (
     AppModeType appMode
 )
-{}
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_SELECTAPPLICATIONMODE, ECUM_E_NOT_INITED);
+        return E_NOT_OK;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    EcuM_Module.AppMode = AppMode;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return E_OK;
+}
 
 /**********************************************************************
  * @brief        service is intended for implementing AUTOSAR ports
@@ -894,7 +1017,28 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_GetApplicationMode
 (
     P2VAR(AppModeType, ECUM_APPL_DATA) appMode
 )
-{}
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETAPPLICATIONMODE, ECUM_E_NOT_INITED);
+        return E_NOT_OK;
+    }
+    else if (NULL_PTR == appMode)
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETAPPLICATIONMODE, ECUM_E_NULL_POINTER);
+        return E_NOT_OK;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    *appMode = EcuM_Module.AppMode;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return E_OK;
+}
 
 /**********************************************************************
  * @brief        selects a boot target
@@ -910,7 +1054,22 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_SelectBootTarget
 (
     EcuM_BootTargetType target
 )
-{}
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_SELECTBOOTTARGET, ECUM_E_NOT_INITED);
+        return E_NOT_OK;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    EcuM_Module.BootTarget = target;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return E_OK;
+}
 
 /**********************************************************************
  * @brief        service is intended for implementing AUTOSAR ports
@@ -925,7 +1084,28 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_GetBootTarget
 (
     EcuM_BootTargetType target
 )
-{}
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETBOOTTARGET, ECUM_E_NOT_INITED);
+        return E_NOT_OK;
+    }
+    else if (NULL_PTR == target)
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_GETBOOTTARGET, ECUM_E_NULL_POINTER);
+        return E_NOT_OK;
+    }
+    #endif
+
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    *target = EcuM_Module.BootTarget;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    return E_OK;
+}
 
 /**********************************************************************
  * @brief        
