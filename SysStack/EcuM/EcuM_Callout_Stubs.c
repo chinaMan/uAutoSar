@@ -89,7 +89,16 @@ EcuM_DeterminePbConfiguration(void);
 EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitOne
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
-);
+)
+{
+    uint8 i = 0;
+
+    /* initial the drivers in EcuMDriverInitListZero */
+    for (i = 0; i < ECUM_INIT_LIST_ONE_NUM; i++)
+    {
+        EcuM_InitDriver(EcuMDriverInitListOne[i]);
+    }
+}
 
 /**********************************************************************
  * @brief        this callout shall provide driver initialization of 
@@ -107,7 +116,16 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitOne
 EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitTwo
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
-);
+)
+{
+    uint8 i = 0;
+
+    /* initial the drivers in EcuMDriverInitListZero */
+    for (i = 0; i < ECUM_INIT_LIST_ONE_NUM; i++)
+    {
+        EcuM_InitDriver(EcuMDriverInitListOne[i]);
+    }
+}
 
 /**********************************************************************
  * @brief        this callout shall provide driver initialization of 
@@ -125,7 +143,16 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitTwo
 EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitThree
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
-);
+)
+{
+    uint8 i = 0;
+
+    /* initial the drivers in EcuMDriverInitListZero */
+    for (i = 0; i < ECUM_INIT_LIST_ONE_NUM; i++)
+    {
+        EcuM_InitDriver(EcuMDriverInitListOne[i]);
+    }
+}
 
 /**********************************************************************
  * @brief        just before calling RTE_Start

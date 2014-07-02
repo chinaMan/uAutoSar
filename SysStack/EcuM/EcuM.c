@@ -53,6 +53,18 @@ STATIC EcuM_RtType EcuM_Module =
 #define ECUM_CHECK_CFG_CONSISTENCY
 
 /*========================[INTERNAL FUNCTION PROTYPE]=================*/
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_Startup(void);
+#endif
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_AppRun(void);
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_AppPostRun(void);
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_GoOffOne(void);
+#endif
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_GoSleep(void);
+#endif
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_WakeupValidation(void);
 
 /*========================[FUNCTION IMPLEMENTION]=====================*/
 /**********************************************************************
@@ -1112,4 +1124,164 @@ FUNC(Std_ReturnType, ECUM_CODE) EcuM_GetBootTarget
  * @ServiceId    0x18      
  * @Timing:      VARIABLE_CYCLE
  *********************************************************************/
-FUNC(void, ECUM_CODE) EcuM_MainFunction(void){}
+FUNC(void, ECUM_CODE) EcuM_MainFunction(void)
+{
+    #if (STD_ON == ECUM_DEV_ERROR_DETECT)
+    if (FALSE == EcuM_Module.Inited) 
+    {
+        Det_ReportError(ECUM_MODULE_ID, ECUM_INSTANCE_ID, 
+                ECUM_SID_MAINFUNCTION, ECUM_E_NOT_INITED);
+        return;
+    }
+    #endif
+    switch (EcuM_Module.State)
+    {
+        #if (ECUM_INCLUDE_NVM)
+        case ECUM_STATE_STARTUP_TWO:
+            EcuM_MainFunction_Startup();
+            break;
+        #endif
+        case ECUM_STATE_APP_RUN:
+            EcuM_MainFunction_AppRun();
+            break;
+        case ECUM_STATE_APP_POST_RUN:
+            EcuM_MainFunction_AppPostRun();
+            break;
+        #if (ECUM_INCLUDE_NVM)
+        case ECUM_STATE_GO_OFF_ONE:
+            EcuM_MainFunction_GoOffOne();
+            break;
+        #endif
+        #if (ECUM_INCLUDE_NVM)
+        case ECUM_STATE_GO_SLEEP:
+            EcuM_MainFunction_GoSleep();
+            break;
+        #endif
+        case ECUM_STATE_WAKEUP_VALIDATION:
+            EcuM_MainFunction_WakeupValidation();
+            break;
+    }
+}
+
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_Startup(void)
+{
+    if (!EcuM_IssertEvent(ECUM_EVENT_NVM_READ))
+    {
+        /* TODO: stop timer */
+
+        EcuM_AL_DriverInitThree(EcuM_Module.PbCfg); /* Init Block III */
+
+        /* no valid wakeup event */
+        if (ECUM_WKSOURCE_NONE == EcuM_Module.ValidWks) 
+        {
+            /* enter Wakeup validation state */
+            #if (STD_ON == ECUM_INCLUDE_RTE)
+            Rte_Switch_currentMode_currentMode(RTE_MODE_EcuM_Mode_Wakeup);
+            EcuM_EnterWakeupValidate();
+            #endif
+
+        }
+        else
+        {
+            /* enter APP RUN State */
+            #if (STD_ON == ECUM_INCLUDE_RTE)
+            Rte_Switch_currentMode_currentMode(RTE_MODE_EcuM_Mode_RUN);
+            EcuM_EnterAppRun();
+            #endif
+
+        }
+    }
+}
+#endif
+
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_AppRun(void)
+{
+    /* 
+     *  Figure 8 - RUN II State Sequence
+     */
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    if ((0U == EcuM_Module.UserReqCount) 
+            #if (STD_ON == ECUM_INCLUDE_COMM)
+            && (0U == EcuM_Module.ComMReqCount)
+            #endif
+            && (!EcuM_IssertEvent(ECUM_EVENT_APP_RUN)))
+    {
+        SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+        EcuM_EnterAppPostRun();        
+    }
+    else
+    {
+        SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    }
+
+}
+
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_AppPostRun(void)
+{
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    if ((EcuM_Module.UserReqCount > 0U) 
+            && (EcuM_Module.ComMReqCount > 0U))
+    {
+        SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+        EcuM_EnterAppRun();    
+    }
+    else if (0U == EcuM_Module.UserReqPostCount)
+    {
+        SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+        /*@req <EcuM2761> */
+        EcuM_OnExitPostRun();
+        EcuM_EnterPrepShutdown();
+    }
+    else
+    {
+        SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    }
+}
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_GoOffOne(void)
+{
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    if (!EcuM_IssertEvent(ECUM_EVENT_NVM_WRITE))
+    {
+        /* set watchdog mode */
+        #if (STD_ON == ECUM_INCLUDE_WDGM)    
+        WdgM_SetMode(EcuM_Module.PbCfg->EcuMWdgMConfigData->EcuMWdgMShutdownMode);
+        #endif
+
+        /* check pending wakeup event */
+        if (ECUM_WKSOURCE_NONE != EcuM_GetPendingWakeupEvents())
+        {
+            EcuM_SelectShutdownTarget(ECUM_STATE_RESET, 0U);
+        }
+
+        /*@req <EcuM2328> */
+        ShutdownOS(E_OK);
+    }
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+}
+#endif
+#if (ECUM_INCLUDE_NVM)
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_GoSleep(void)
+{
+    if (ECUM_WKSOURCE_NONE != EcuM_GetPendingWakeupEvents())
+    {
+        Nvm_CancelWriteAll();    
+        EcuM_ClearEvent(ECUM_EVENT_NVM_WRITE);
+        EcuM_StopTimer();
+
+        EcuM_EnterWakeupValidate();
+    }
+
+    if (!EcuM_IssertEvent(ECUM_EVENT_NVM_WRITE))
+    {
+        EcuM_GoSleepExit();
+    }
+}
+#endif
+STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_WakeupValidation(void)
+{}
+
+STATIC FUNC(void, ECUM_CODE) EcuM_EnterAppRun(void) {}
+STATIC FUNC(void, ECUM_CODE) EcuM_EnterWakeupValidate(void) {}
