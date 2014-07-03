@@ -62,6 +62,18 @@ STATIC EcuM_RtType EcuM_Module =
 
 /*========================[MACRO FUNCTION]============================*/
 #define ECUM_CHECK_CFG_CONSISTENCY
+#defien ECUM_MAP_RESETREASON_TO_WKS(reset)  \
+    do{                                     \
+        uint8 i = 0;                        \
+        for (i = 0; i < ECUM_WAKEUPSOURCE_NUM; i++)   \
+        {                                             \
+            if ((reset) == EcuM_WakeupSourceConfigData[i].ResetReason) \
+            {                                                          \
+                EcuM_Module.ValidWks |= EcuM_WakeupSourceConfigData[i].ResetReason; \
+            }                                                          \
+        }                                                              \
+    }while(0)
+
 
 /*========================[INTERNAL FUNCTION PROTYPE]=================*/
 #if (ECUM_INCLUDE_NVM)
@@ -122,10 +134,12 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
     EcuM_Module.inited = TRUE;
 
     /* 
-     * init sequence 1(ref to AutoSar Figure 4 - Init Sequence I)
+     * STARTUP I(ref to AutoSar Figure 4 - Init Sequence I)
      */
-    EcuM_AL_DriverInitZero();                   /* Init Block 0 */
+     /* Init Block 0 (Ref Table 2 - Drivers initialization Details, Sample Configuration) */
+    EcuM_AL_DriverInitZero();                  
 
+    /* get Post Configure and check config consistency */
     EcuM_Module.PbCfg = EcuM_DeterminePbConfiguration();
     if ((NULL == EcuM_Module.PbCfg)
             || !ECUM_CHECK_CFG_CONSISTENCY(EcuM_Module.PbCfg)
@@ -137,21 +151,18 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
        return;
     }
 
-    EcuM_AL_DriverInitOne(EcuM_Module.PbCfg);   /* Init Block I */
+    /* Init Block I (Ref Table 2 - Drivers initialization Details, Sample Configuration) */
+    EcuM_AL_DriverInitOne(EcuM_Module.PbCfg);   
 
+    /* get reset reason and map it to wakeup source */
     reset = Mcu_GetResetReason();
-    /* map reset reason to wakeup source */
-    for (i = 0; i < ECUM_WAKEUPSOURCE_NUM; i++)
-    {
-        if (reset == EcuM_WakeupSourceConfigData[i].ResetReason)
-        {
-            EcuM_Module.ValidWks |= EcuM_WakeupSourceConfigData[i].WakeupSource;
-        }
-    }
+    ECUM_MAP_RESET_TO_WKS(reset);
+    
+    /*@req EcuM2181 */
+    EcuM_SelectShutdownTarget(EcuM_Module.PbCfg->DefaultShutdownTarget->Target, 
+            EcuM_Module.PbCfg->DefaultShutdownTarget->Mode);
 
-    EcuM_SelectShutdownTarget(EcuM_Module.PbCfg->DefaultShutdownTarget->State, 
-            EcuM_Module.PbCfg->DefaultShutdownTarget->SleepMode);
-
+    /*@req EcuM2242 */
     if (MCU_RESET_UNDEFINED == reset)
     {
         app = EcuM_SelectApplicationMode(
@@ -159,7 +170,7 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
     }
 
     /* 
-     * start os (not return)
+     * start OS (not return)
      */
     StartOS(app);
 }
@@ -184,6 +195,9 @@ FUNC(void, ECUM_CODE) EcuM_StartupTwo(void)
     }
     #endif
 
+    /* 
+     * STARTUP II (Ref Figure 5 - Init Sequence II)
+     */
     EcuM_Module.State = ECUM_STATE_STARTUP_TWO;
 
     #if (STD_ON == ECUM_INCLUDE_SCHM)
@@ -200,7 +214,7 @@ FUNC(void, ECUM_CODE) EcuM_StartupTwo(void)
     #if (STD_ON == ECUM_INCLUDE_NVRAM)
     /* read all configure data from NVM */
     NvM_ReadAll();
-
+    EcuM_SetEvent(ECUM_EVENT_NVM_READ_REQ);
     /* start timer */
     EcuM_TimerStart(EcuM_Module.ShareTimer, 
             EcuM_Module.PbCfg->NvramReadallTimeout, 
@@ -215,23 +229,20 @@ FUNC(void, ECUM_CODE) EcuM_StartupTwo(void)
 
     /* when no NVRAM, not need wait NvM_ReadAll finish, then switch to next state */
     #if (STD_ON != ECUM_INCLUDE_NVRAM)
+    /*@req EcuM2632 */
     if (ECUM_WKSOURCE_NONE == EcuM_Module.ValidWks) /* no valid wakeup event */
     {
         #if (STD_ON == ECUM_INCLUDE_RTE)
         Rte_Switch_currentMode_currentMode(RTE_MODE_EcuM_Mode_Wakeup);
         #endif
-
-        /* enter Wakeup State */
-        EcuM_EnterWakeupValidate();
+        EcuM_EnterWakeupValidate(); /* Enter Wakeup Validate State */
     }
     else
     {
         #if (STD_ON == ECUM_INCLUDE_RTE)
         Rte_Switch_currentMode_currentMode(RTE_MODE_EcuM_Mode_RUN);
         #endif
-
-        /* enter APP RUN State */
-        EcuM_EnterAppRun();
+        EcuM_EnterAppRun(); /* Enter APP RUN State */
     }
     #endif
 }
