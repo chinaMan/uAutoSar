@@ -1492,7 +1492,44 @@ STATIC FUNC(void, ECUM_CODE) EcuM_EnterGoSleep(void)
     #endif
 }
 
-STATIC FUNC(void, ECUM_CODE) EcuM_EnterGoOffOne(void) {}
+STATIC FUNC(void, ECUM_CODE) EcuM_EnterGoOffOne(void) 
+{
+    /*
+     * Ref Figure 14 - DeInitialization Sequence IIb (GO OFF I)
+     */
+    SchM_Entry_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+    EcuM_Module.State = ECUM_STATE_GO_OFF_ONE;
+    SchM_Exit_EcuM(ECUM_INSTANCE_ID, ECUM_AREA_CRITICAL);
+
+    EcuM_OnGoOffOne();
+
+    #if (STD_ON == ECUM_INCLUDE_RTE)
+    Rte_Stop();
+    #endif
+
+    #if (STD_ON == ECUM_INCLUDE_COMM)
+    ComM_DeInit();
+    #endif
+
+    #if (STD_ON == ECUM_INCLUDE_NVM)
+    NvM_WriteAll();
+    EcuM_SetEvent(ECUM_EVENT_NVM_WRITE);
+    EcuM_StartTimer(EcuM_Module.ShareTimer,
+                    EcuM_Module.pPbCfg->NvramWriteallTimeout,
+                    EcuM_NvMWriteTimeout);
+    #else
+    #if (STD_ON == ECUM_INCLUDE_WDGM)
+    (void)WdgM_SetMode(EcuM_Module.PbCfg->WdgMConfigData->ShutdownModeRef);
+    #endif
+
+    if (ECUM_WKSOURCE_NONE != EcuM_GetPendingWakeupEvents())
+    {
+        (void)EcuM_SelectShutdownTarget(ECUM_STATE_RESET, 0U);
+    }
+
+    ShutdownOS(E_OK);
+    #endif /* #if (STD_ON == ECUM_INCLUDE_NVM) */
+}
 
 STATIC FUNC(void, ECUM_CODE) EcuM_EnterSleep(void) 
 {
