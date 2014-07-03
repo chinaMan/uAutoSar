@@ -109,7 +109,7 @@ typedef enum
 typedef struct
 {
     EcuM_StateType   State;
-    uint8            SleepModeId;
+    uint8            SleepMode;
 } EcuM_ShutdownTargetType;
 
 /*========================[API PROTYPE]===============================*/
