@@ -58,6 +58,8 @@
 
 #define ECUM_TTII_WKSOURCE_ID            2U
 
+#define ECUM_ALL_WKSOURCES               0xFFFF
+
 #endif /* #define ECUM_CFG_H */
 
 /*=======[END OF FILE]==============================================*/
