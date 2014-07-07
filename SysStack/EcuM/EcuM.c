@@ -14,54 +14,71 @@
 #include "EcuM.h"
 
 /*========================[INTERNAL DTAT TYPE]========================*/
-typedef void (*EcuM_TimerCbkFuncType)(void);
-
+/*
+ * Timer data structure
+ */
+typedef void (*EcuM_TimerCbkFuncType)(void);   /* callback function */
 typedef struct
 {
-    uint8 TimeValue;
+    uint8 TimeoutValue;                           /* timeout value */
     EcuM_TimerCbkFuncType  Callback;
 } EcuM_TimerType;
 
+/*
+ * EcuM module running time data structure
+ */
 typedef struct
 {
-    boolean           Inited;      /* is initialized */
-    EcuM_StateType    State;       /* EcuM state */
-    EcuM_ConfigType   *PbCfg; 
+    boolean           Inited;                   /* wether has initialized already */
+    EcuM_StateType    State;                    /* EcuM state */
 
-    EcuM_WakeupSourceType     ValidWks;
-    EcuM_WakeupSourceType     PendingWks;
-    EcuM_WakeupSourceType     ValidatedWks;
-    EcuM_WakeupSourceType     ExpiredWks;
+    /* pointer to post build config data */
+    P2CONST(EcuM_ConfigType, AUTOMATIC, ECUM_CONST_PBCFG) PbCfg;
 
-    EcuM_ShutdownTargetType   ShutdownTarget;
+    EcuM_WakeupSourceType     ValidWks;         /* valid wakeup sources */
+    EcuM_WakeupSourceType     PendingWks;       /* pending wakeup source */
+    EcuM_WakeupSourceType     ValidatedWks;     /* validated wakeup source */
+    EcuM_WakeupSourceType     ExpiredWks;       /* expired wakeup source */
 
-    boolean                   IsRun[ECUM_USER_MAX];
-    uint8                     UserReqCount;
+    EcuM_ShutdownTargetType   ShutdownTarget;   /* target state & sleep mode after shutdown */
 
-    boolean                   IsPostRun[ECUM_USER_MAX];
-    uint8                     UserReqPostCount;
+    boolean                   IsUserRun[ECUM_USER_MAX];           /* wether has run for one user */
+    uint8                     UserReqCount;                       /* count of user requests in EcuM */
+    boolean                   IsUserPostRun[ECUM_USER_MAX];       /* wether has run for one user */
+    uint8                     UserReqPostCount;                   /* count of user post run requests */
 
-    uint8                     ComMChState[ECUM_COMM_CHANNEL_MAX];
-    uint8                     ComMReqCount;
+    uint8                     ComMChState[ECUM_COMM_CHANNEL_MAX]; /* state of each ComM channel */
+    uint8                     ComMReqCount;                       /* count of request from ComM channel */
 
-    OsAppMode                 AppMode;
-    EcuM_BootTargetType       BootTarget; 
+    OsAppMode                 AppMode;                            /* Application mode for OS */
+    EcuM_BootTargetType       BootTarget;                         /* boot target: Boot and Application */
 
-    EcuM_TimerType            ShareTimer;
-    EcuM_TimerType            WksTimer[ECUM_WAKEUPSOURCE_NUM];
+    EcuM_TimerType            ShareTimer;                         /* share timer */
+    EcuM_TimerType            WksTimer[ECUM_WAKEUPSOURCE_NUM];    /* the timer for each wakeup source */
 } EcuM_RtType;
 
 /*========================[INTERNAL STATIC DTAT]========================*/
 STATIC EcuM_RtType EcuM_Module = 
 {
-    .State  = ECUM_STATE_OFF;
-    .Inited = FALSE;
-    .PbCfg  = NULL_PTR;
-    .UserReqCount = 0x0U;
+    .Inited            = FALSE;
+    .State             = ECUM_STATE_OFF;
+    .PbCfg             = NULL_PTR;
+    .UserReqCount      = 0x0U;
+    .ValidWks          = 0x0U;
+    .PendingWks        = 0x0U;
+    .ValidatedWks      = 0x0U;
+    .ExpiredWks        = 0x0U;
+    .UserReqCount      = 0x0U;
+    .UserReqPostCount  = 0x0U;
+    .ComMReqCount      = 0x0U;
+    .AppMode           = 0x0U;
 };
 
 /*========================[MACRO FUNCTION]============================*/
+/* check configure data consistency */
 #define ECUM_CHECK_CFG_CONSISTENCY
+
+/* map reset reason to wakeup source */
 #defien ECUM_MAP_RESETREASON_TO_WKS(reset)  \
     do{                                     \
         uint8 i = 0;                        \
@@ -69,11 +86,10 @@ STATIC EcuM_RtType EcuM_Module =
         {                                             \
             if ((reset) == EcuM_WakeupSourceConfigData[i].ResetReason) \
             {                                                          \
-                EcuM_Module.ValidWks |= EcuM_WakeupSourceConfigData[i].ResetReason; \
+                EcuM_Module.PendingWks |= EcuM_WakeupSourceConfigData[i].ResetReason; \
             }                                                          \
         }                                                              \
     }while(0)
-
 
 /*========================[INTERNAL FUNCTION PROTYPE]=================*/
 #if (ECUM_INCLUDE_NVM)
@@ -122,7 +138,7 @@ STATIC FUNC(boolean, ECUM_CODE) EcuM_TimerIsTimeout(EcuM_TimerType timer);
  *********************************************************************/
 FUNC(void, ECUM_CODE) EcuM_Init(void)
 {
-    EcuM_AppModeType app = ECUM_OSDEFAULTAPPMODE;
+    EcuM_AppModeType app = ECUM_OSDEFAULTAPPMODE;    /* application mode default  */
     EcuM_ResetType reset = MCU_RESET_UNDEFINED;
     uint8 i = 0;
 
@@ -130,10 +146,6 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
      * init run time data structure
      */
     EcuM_Module.State        = ECUM_STATE_STARTUP_ONE; 
-    EcuM_Module.PbCfg        = NULL_PTR;
-    EcuM_Module.PendingWks   = NULL_PTR;
-    EcuM_Module.ValidatedWks = NULL_PTR;
-    EcuM_Module.ExpiredWks   = NULL_PTR;
     EcuM_Module.Inited       = TRUE;
 
     /* 
@@ -234,7 +246,8 @@ FUNC(void, ECUM_CODE) EcuM_StartupTwo(void)
     /* when no NVRAM, not need wait for NvM_ReadAll finish, then switch to next state */
     #if (STD_ON != ECUM_INCLUDE_NVRAM)
     /*@req EcuM2632 */
-    if (ECUM_WKSOURCE_NONE == EcuM_Module.ValidWks) /* no valid wakeup event */
+    /* check wether wakeup by wakeup source with integrated power control */
+    if (ECUM_WKSOURCE_NONE != EcuM_GetPendingWakeupEvents()) 
     {
         #if (STD_ON == ECUM_INCLUDE_RTE)
         Rte_Switch_currentMode_currentMode(RTE_MODE_EcuM_Mode_Wakeup);
@@ -1478,12 +1491,10 @@ STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_WakeupValidation(void)
         for (i = 0; i < ECUM_WAKEUPSOURCE_NUM; i++)
         {
             if (ECUM_WKSOURCE_NONE != 
-                    (EcuM_WakeupSourceConfigData[i].EcuMWakeupSourceId 
+                    (EcuM_WakeupSourceConfigData[i].WakeupSource 
                      & EcuM_Module.PendingWks))
             {
-                EcuM_CheckValidation(EcuM_WakeupSourceConfigData[i].EcuMWakeupSourceId);
-
-                /* TODO: check time expire */
+                EcuM_CheckValidation(EcuM_WakeupSourceConfigData[i].WakeupSource);
             }    
         }    
     }
