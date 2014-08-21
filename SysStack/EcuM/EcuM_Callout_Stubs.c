@@ -18,7 +18,8 @@
 /*========================[INTERNAL STATIC DTAT]========================*/
 
 /*========================[INTERNAL FUNCTION PROTYPE]=================*/
-STATIC FUNC(void, ECUM_CODE) EcuM_InitDriver(uint8 ModuleId);
+STATIC FUNC(void, ECUM_CODE) EcuM_InitDriver(uint8 ModuleId)
+{}
 
 /*========================[FUNCTION IMPLEMENTION]=====================*/
 /**********************************************************************
@@ -32,10 +33,11 @@ STATIC FUNC(void, ECUM_CODE) EcuM_InitDriver(uint8 ModuleId);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_ErrorHook
+FUNC(void, ECUM_CODE) EcuM_ErrorHook
 (
     Std_ReturnType reason
-);
+)
+{}
 
 /**********************************************************************
  * @brief        this callout shall provide driver initialization and 
@@ -70,8 +72,9 @@ FUNC(void, ECUM_CODE) EcuM_AL_DriverInitZero(void)
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(P2VAR(EcuM_ConfigType, ECUM_APPL_DATA), ECUM_CODE) 
-EcuM_DeterminePbConfiguration(void);
+FUNC(P2VAR(EcuM_ConfigType, ECUM_APPL_DATA), ECUM_CODE) 
+EcuM_DeterminePbConfiguration(void)
+{}
 
 /**********************************************************************
  * @brief        this callout shall provide driver initialization and 
@@ -86,7 +89,7 @@ EcuM_DeterminePbConfiguration(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitOne
+FUNC(void, ECUM_CODE) EcuM_AL_DriverInitOne
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
 )
@@ -113,7 +116,7 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitOne
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitTwo
+FUNC(void, ECUM_CODE) EcuM_AL_DriverInitTwo
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
 )
@@ -140,7 +143,7 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitTwo
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitThree
+FUNC(void, ECUM_CODE) EcuM_AL_DriverInitThree
 (
     P2CONST(EcuM_ConfigType, ECUM_APPL_DATA) ConfigPtr
 )
@@ -163,7 +166,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_DriverInitThree
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnRTEStartup(void);
+FUNC(void, ECUM_CODE) EcuM_OnRTEStartup(void)
+{}
 
 /**********************************************************************
  * @brief        on entry of RUN state is very similar to "just after 
@@ -176,7 +180,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnRTEStartup(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnEnterRun(void);
+FUNC(void, ECUM_CODE) EcuM_OnEnterRun(void)
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -188,7 +193,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnEnterRun(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnExitRun(void);
+FUNC(void, ECUM_CODE) EcuM_OnExitRun(void);
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -200,7 +206,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnExitRun(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnExitPostRun(void);
+FUNC(void, ECUM_CODE) EcuM_OnExitPostRun(void);
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -212,7 +219,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnExitPostRun(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnPrepShutdown(void);
+FUNC(void, ECUM_CODE) EcuM_OnPrepShutdown(void);
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -224,7 +232,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnPrepShutdown(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoSleep(void);
+FUNC(void, ECUM_CODE) EcuM_OnGoSleep(void);
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -236,7 +245,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoSleep(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoOffOne(void);
+FUNC(void, ECUM_CODE) EcuM_OnGoOffOne(void);
+{}
 
 /**********************************************************************
  * @brief        this call allows the system designer to notify that the 
@@ -248,7 +258,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoOffOne(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoOffTwo(void);
+FUNC(void, ECUM_CODE) EcuM_OnGoOffTwo(void);
+{}
 
 /**********************************************************************
  * @brief        created to fix wakeup sequence
@@ -259,10 +270,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnGoOffTwo(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_EnableWakeupSources
+FUNC(void, ECUM_CODE) EcuM_EnableWakeupSources
 (
     EcuM_WakeupSourceType wakeupSource
-);
+)
+{}
 
 /**********************************************************************
  * @brief        see EcuM_CheckRamHash
@@ -273,7 +285,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_EnableWakeupSources
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_GenerateRamHash(void);
+FUNC(void, ECUM_CODE) EcuM_GenerateRamHash(void)
+{}
 
 /**********************************************************************
  * @brief        this callout shall take the code for shutting off the 
@@ -286,7 +299,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_GenerateRamHash(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_AL_SwitchOff(void);
+FUNC(void, ECUM_CODE) EcuM_AL_SwitchOff(void)
+{}
 
 /**********************************************************************
  * @brief        
@@ -298,7 +312,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_AL_SwitchOff(void);
  * @Return       0: RAM integrity test failed
  *               else: RAM integrity test passed
  *********************************************************************/
-EXTERN FUNC(uint8, ECUM_CODE) EcuM_CheckRamHash(void);
+FUNC(uint8, ECUM_CODE) EcuM_CheckRamHash(void);
+{}
 
 /**********************************************************************
  * @brief        the callout shall set up the given wakeup source(s) 
@@ -310,10 +325,11 @@ EXTERN FUNC(uint8, ECUM_CODE) EcuM_CheckRamHash(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_DisableWakeupSources
+FUNC(void, ECUM_CODE) EcuM_DisableWakeupSources
 (
     EcuM_WakeupSourceType wakeupSource
-);
+)
+{}
 
 /**********************************************************************
  * @brief        the callout shall provide driver initialization and 
@@ -326,7 +342,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_DisableWakeupSources
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_DriverRestart(void);
+FUNC(void, ECUM_CODE) EcuM_DriverRestart(void)
+{}
 
 /**********************************************************************
  * @brief        the callout shall start the given wakeup source(s)
@@ -338,10 +355,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_DriverRestart(void);
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_StartWakeupSources
+FUNC(void, ECUM_CODE) EcuM_StartWakeupSources
 (
     EcuM_WakeupSourceType wakeupSource
-);
+)
+{}
 
 /**********************************************************************
  * @brief        this callout is called by the Ecum to validate a wakeup 
@@ -354,10 +372,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_StartWakeupSources
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_CheckValidation
+FUNC(void, ECUM_CODE) EcuM_CheckValidation
 (
     EcuM_WakeupSourceType wakeupSource
-);
+)
+{}  
 
 /**********************************************************************
  * @brief        this callout shall stop the given wakeup source(s) 
@@ -369,10 +388,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_CheckValidation
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_StopWakeupSources
+FUNC(void, ECUM_CODE) EcuM_StopWakeupSources
 (
     EcuM_WakeupSourceType wakeupSource
-);
+)
+{}
 
 /**********************************************************************
  * @brief        this callout gives the system designer the chance to 
@@ -385,10 +405,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_StopWakeupSources
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
+FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
 (
     EcuM_WakeupReactionType wact
-);
+)
+{}
 
 /**********************************************************************
  * @brief        this callout gives the system designer the chance to 
@@ -401,10 +422,11 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
+FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
 (
     EcuM_WakeupReactionType wact
-);
+)
+{}
 
 /**********************************************************************
  * @brief        this callout is invoked periodicaly in all reduced clock
@@ -419,7 +441,8 @@ EXTERN FUNC(void, ECUM_CODE) EcuM_OnWakeupReaction
  * @Param[out]   None
  * @Return       None
  *********************************************************************/
-EXTERN FUNC(void, ECUM_CODE) EcuM_SleepActivity(void);
+FUNC(void, ECUM_CODE) EcuM_SleepActivity(void);
+{}
 
 
 STATIC FUNC(void, ECUM_CODE) EcuM_InitDriver(uint8 ModuleId)

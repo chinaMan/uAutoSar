@@ -15,7 +15,6 @@
 
 /*========================[INTERNAL DTAT TYPE]========================*/
 typedef void (*EcuM_TimerCbkFuncType)(void);
-
 typedef struct
 {
     uint8 TimeValue;
@@ -74,7 +73,6 @@ STATIC EcuM_RtType EcuM_Module =
         }                                                              \
     }while(0)
 
-
 /*========================[INTERNAL FUNCTION PROTYPE]=================*/
 #if (ECUM_INCLUDE_NVM)
 STATIC FUNC(void, ECUM_CODE) EcuM_MainFunction_Startup(void);
@@ -94,10 +92,8 @@ STATIC FUNC(void, ECUM_CODE) EcuM_EnterGoSleep(void);
 STATIC FUNC(void, ECUM_CODE) EcuM_EnterGoOffOne(void);
 STATIC FUNC(void, ECUM_CODE) EcuM_EnterSleep(void);
 STATIC FUNC(void, ECUM_CODE) EcuM_EnterWakeupOne(void);
-
 STATIC FUNC(void, ECUM_CODE) EcuM_SleepSequenceOne(void);
 STATIC FUNC(void, ECUM_CODE) EcuM_SleepSequenceTwo(void); 
-
 STATIC FUNC(void, ECUM_CODE) EcuM_TimerStart
 (
     EcuM_TimerType timer, uint32 TimeValue
@@ -142,7 +138,7 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
      /* Init Block 0 (Ref Table 2 - Drivers initialization Details, Sample Configuration) */
     EcuM_AL_DriverInitZero();                  
 
-    /* get Post Configure and check config consistency */
+    /* get Post Configure pointer & check config consistency */
     EcuM_Module.PbCfg = EcuM_DeterminePbConfiguration();
     if ((NULL_PTR == EcuM_Module.PbCfg)
             || !ECUM_CHECK_CFG_CONSISTENCY(EcuM_Module.PbCfg)
@@ -162,7 +158,8 @@ FUNC(void, ECUM_CODE) EcuM_Init(void)
     ECUM_MAP_RESETREASON_TO_WKS(reset);
     
     /*@req EcuM2181 */
-    EcuM_SelectShutdownTarget(EcuM_Module.PbCfg->DefaultShutdownTarget->Target, 
+    EcuM_SelectShutdownTarget(
+            EcuM_Module.PbCfg->DefaultShutdownTarget->Target, 
             EcuM_Module.PbCfg->DefaultShutdownTarget->Mode);
 
     /*@req EcuM2242 */
