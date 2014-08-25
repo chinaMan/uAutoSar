@@ -51,8 +51,15 @@
 #define   FLS_PFCR1_PFLIM       0x10000000U
 #define   FLS_PFCR1_BFE         0x10000000U
 
+#define   FLS_LML_LLK           0x000000FFU
+#define   FLS_LML_MLK           0x00030000U
+#define   FLS_LML_SLK           0x00100000U
+#define   FLS_LML_LME           0x80000000U
 
 #define   FLS_SLL_SLE           0x0000000FU
+
+#define   FLS_HLR_HLK           0x0000000FU
+
 /* 
  * Registers value define 
  */

@@ -43,10 +43,30 @@
 #include "Fls_MemMap.h"
 
 extern FUNC(boolean, FLS_CODE) Fls_HwInit(void);
-extern FUNC(boolean, FLS_CODE) Fls_HwErase(void);
-extern FUNC(boolean, FLS_CODE) Fls_HwWrite(void);
-extern FUNC(boolean, FLS_CODE) Fls_HwRead(void);
-extern FUNC(boolean, FLS_CODE) Fls_HwCompare(void);
+extern FUNC(boolean, FLS_CODE) Fls_HwErase
+(
+    Fls_AddressType addr, 
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg
+);
+extern FUNC(boolean, FLS_CODE) Fls_HwWrite 
+(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg
+);
+extern FUNC(boolean, FLS_CODE) Fls_HwRead 
+(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+);
+extern FUNC(boolean, FLS_CODE) Fls_HwCompare 
+(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+);
 
 #define Fls_STOP_SEC_CODE
 #include "Fls_MemMap.h"

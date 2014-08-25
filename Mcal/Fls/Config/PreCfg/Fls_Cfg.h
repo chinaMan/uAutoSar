@@ -65,6 +65,15 @@
 
 #define FLS_USE_INTERRUPTS              STD_ON
 
+/* 
+ * addition configuration
+ */ 
+#define FLS_BANK0ARRAY0_LOW     0x00U
+#define FLS_BANK0ARRAY0_MID     0x01U
+#define FLS_BANK1ARRAY1_HIHG    0x12U
+#define FLS_BANK1ARRAY2_HIHG    0x22U
+#define FLS_BANK0ARRAY0_SHADOW  0x03U
+
 #endif /* #define FLS_CFG_H */
 
 /*=======[E N D   O F   F I L E]==============================================*/

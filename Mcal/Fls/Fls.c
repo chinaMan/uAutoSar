@@ -642,7 +642,10 @@ STATIC FUNC(void, FLS_CODE) Fls_JobWrite(void)
         length = Fls_RtData.Length;
     }
 
-    jobRet = Fls_HwWrite(Fls_RtData.SourceAddress, Fls_RtData.TargetAddress, length);
+    jobRet = Fls_HwWrite(Fls_RtData.SourceAddress, 
+        Fls_RtData.TargetAddress, 
+        length,
+        sectorCfg);
 
     if (FALSE == jobRet) /* job fail */
     {

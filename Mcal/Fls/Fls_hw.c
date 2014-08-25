@@ -50,20 +50,71 @@
 #endif /* FLS_C_SW_MINOR_VERSION != FLS_H_SW_MINOR_VERSION */
 
 /*=======[M A C R O S]========================================================*/
-#define FLS_HW_BLOCK_UNLOCK(addrSpace, blockIdx) \
+#define FLS_HW_BLOCK_UNLOCK(addrSpace)           \
     do{                                          \
-        switch (addrSpace)                       \
+        switch ((addrSpace))                     \
         {                                        \
-            case FLS_BANK_0:                     \
-                Fls_CtrlRegs[0]->Lml =          ;\
+            case FLS_BANK0ARRAY0_LOW:            \
+                Fls_CtrlRegs[0]->Lml &= ~FLS_LML_LLK; \
                 break;                           \
-            case FLS_BANK_1:                     \
-                Fls_CtrlRegs[1]->Hlr =          ;\
+            case FLS_BANK0ARRAY0_MID:            \
+                Fls_CtrlRegs[1]->Lml &= ~FLS_LML_MLK; \
                 break;                           \
-            case FLS_BANK_2:                     \
-                Fls_CtrlRegs[1]->Hlr =          ;\
+            case FLS_BANK1ARRAY1_HIHG:           \
+                Fls_CtrlRegs[1]->Hlr &= ~FLS_HLR_HLK;\
                 break;                           \
-        }
+            case FLS_BANK1ARRAY2_HIHG:           \
+                Fls_CtrlRegs[2]->Hlr &= ~FLS_HLR_HLK;\
+                break;                           \
+            case FLS_BANK0ARRAY0_SHADOW:         \
+                Fls_CtrlRegs[0]->Lml &= ~FLS_LML_SLK;\
+                break;                           \
+        }                                        \
+    }while(0)
+
+#define FLS_HW_BLOCK_LOCK(addrSpace)             \
+    do{                                          \
+        switch ((addrSpace))                     \
+        {                                        \
+            case FLS_BANK0ARRAY0_LOW:            \
+                Fls_CtrlRegs[0]->Lml |= FLS_LML_LLK; \
+                break;                           \
+            case FLS_BANK0ARRAY0_MID:            \
+                Fls_CtrlRegs[1]->Lml |= FLS_LML_MLK; \
+                break;                           \
+            case FLS_BANK1ARRAY1_HIGH:           \
+                Fls_CtrlRegs[1]->Hlr |= FLS_HLR_HLK;\
+                break;                           \
+            case FLS_BANK1ARRAY2_HIGH:           \
+                Fls_CtrlRegs[2]->Hlr |= FLS_HLR_HLK;\
+                break;                           \
+            case FLS_BANK0ARRAY0_SHADOW:         \
+                Fls_CtrlRegs[0]->Lml |= FLS_LML_SLK;\
+                break;                           \
+        }                                        \
+    }while(0)
+
+#define FLS_HW_BLOCK_SELECT(addrSpace, blockIdx)  \
+    do{                                           \
+        switch ((addrSpace))                      \
+        {                                         \
+            case FLS_BANK0ARRAY0_LOW:             \
+                Fls_CtrlRegs[0]->Lms &= ~FLS_LMS_LSL;\
+                Fls_CtrlRegs[0]->Lms |= (1U << (blockIdx));\
+                break;                            \
+            case FLS_BANK0ARRAY0_MID:             \
+                Fls_CtrlRegs[0]->Lms &= ~FLS_LMS_MSL;\
+                Fls_CtrlRegs[0]->Lms |= (1U << (blockIdx)) << 16;\
+                break;                            \
+            case FLS_BANK1ARRAY1_HIGH:            \
+                Fls_CtrlRegs[1]->Hbs = (1U<<(blockIdx));\
+                break;                            \
+            case FLS_BANK1ARRAY2_HIGH:            \
+                Fls_CtrlRegs[1]->Hbs = (1U<<(blockIdx));\
+                break;                            \
+            case FLS_BANK0ARRAY0_SHADOW:          \
+                break;                            \
+        }                                         \
     }while(0)
 
 /*=======[T Y P E   D E F I N I T I O N S]====================================*/
@@ -74,71 +125,6 @@
 /*=======[I N T E R N A L   F U N C T I O N   D E C L A R A T I O N S]========*/
 
 /*=======[F U N C T I O N   I M P L E M E N T A T I O N S]====================*/
-STATIC FUNC(Fls_HwBankType, FLS_CODE) Fls_GetCntrlIdx(Fls_AddressType addr)
-{
-    Fls_HwBankType flsBank = FLS_BANK_0;
-
-    if ((addr < 0x80000U)
-            || ((addr >= 0xFFC000U) && (addr < 0x1000000U)))
-    {
-        flsBank = FLS_BANK_0;
-    }
-    else if (addr < 0x100000U)
-    {
-        flsBank = FLS_BANK_1;
-    }
-    else if (addr < 0x180000U)
-    {
-        flsBank = FLS_BANK_2;
-    }
-    else
-    {
-        /* do nothing */
-    }
-
-    return flsBank;
-}
-
-STATIC FUNC(Fls_HwAddrSpaceType, FLS_CODE) Fls_AddrSpace(Fls_AddressType addr)
-{
-    Fls_HwAddrSpaceType flsAddrSpace = FLS_SPACE_ADDR_LOW;
-
-    if (addr < 0x40000U)
-    {
-        flsAddrSpace = FLS_SPACE_ADDR_LOW;
-    }
-    else if (addr < 0x800000U)
-    {
-        flsAddrSpace = FLS_SPACE_ADDR_MID;
-    }
-    else if (addr < 0xFFC000U)
-    {
-        flsAddrSpace = FLS_SPACE_ADDR_HIGH;
-    }
-    else if (addr < 0x1000000U)
-    {
-        flsAddrSpace = FLS_SPACE_ADDR_SHADOW;
-    }
-    else
-    {
-        /* do nothing */
-    }
-
-    return flsAddrSpace;
-}
-
-STATIC FUNC(uint8, FLS_CODE) Fls_GetBlockIdx(Fls_AddressType addr, 
-    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg)
-{
-    uint32 i = 0U;
-
-    for (i = 0; i < sectorCfg->FlsNumberOfSectors; i++)
-    {
-        
-    }
-
-}
-
 FUNC(boolean, FLS_CODE) Fls_HwInit(void)
 {
     Fls_CtrlRegs[0]->Sll = FLS_SLL_PASSWORD; 
@@ -158,13 +144,14 @@ FUNC(boolean, FLS_CODE) Fls_HwInit(void)
 FUNC(boolean, FLS_CODE) Fls_HwErase(Fls_AddressType addr, 
     P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg)
 {
-    uint8 flsIdx    = sectorCfg->FlsBank;
-    uint8 blockIdx  = (addr - sectorCfg->FlsSectorStartAddr) / sectorCfg->FlsSectorSize;
+    uint8 blockIdx  = (addr - sectorCfg->FlsSectorStartAddr) / sectorCfg->FlsSectorSize 
+                      + sectorCfg->FlsStartBlock;
     Fls_HwAddrSpaceType addrSpace = sectorCfg->FlsAddrSpace;
+    uint8 flsIdx    = addrSpace >> 4U;
     boolean ret = FALSE;
 
     /* unlock this block */
-    FLS_HW_BLOCK_UNLOCK(addrSpace, blockIdx);
+    FLS_HW_BLOCK_UNLOCK(addrSpace);
     
     /* 
      * erase block step 
@@ -182,31 +169,94 @@ FUNC(boolean, FLS_CODE) Fls_HwErase(Fls_AddressType addr,
     Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_ERS;
 
     /* lock this block */
-    FLS_HW_BLOCK_LOCK(flsIdx, blockIdx);
+    FLS_HW_BLOCK_LOCK(flsIdx);
 
     return ret;
 }
 
-FUNC(boolean, FLS_CODE) Fls_HwWrite(Fls_AddressType addr, Fls_LengthType length)
+FUNC(boolean, FLS_CODE) Fls_HwWrite(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg
+)
 {
+    uint8 flsIdx = sectorCfg->FlsAddrSpace >> 4U;
     boolean ret = FALSE;
+    P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) dest 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) targetAddress;
+    P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) src 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) sourceAddress;
 
     /* write data */
+    Fls_CtrlRegs[flsIdx]->MCR |= FLS_MCR_PEG;
+
+    while (length > 0x0U)
+    {
+        *dest++=*src++;        
+        *dest++=*src++;        
+        length -= 8U;
+        Fls_CtrlRegs[flsIdx]->MCR |= FLS_MCR_EHV;
+
+        while (FLS_MCR_DONE != (Fls_CtrlRegs[flsIdx]->MCR & FLS_MCR_DONE));
+        if (FLS_MCR_PEG != (Fls_CtrlRegs[flsIdx]->MCR & FLS_MCR_PEG))
+        {
+            ret = FALSE;
+        }
+        Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_EHV;
+    }
+
+    Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_PEG;
 
     return ret;
 }
 
-FUNC(boolean, FLS_CODE) Fls_HwRead(Fls_AddressType addr, Fls_LengthType length)
+FUNC(boolean, FLS_CODE) Fls_HwRead(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+)
 {
-    boolean ret = FALSE;
+    P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) dest 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) targetAddress;
+    P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) src 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) sourceAddress;
 
     /* read data */
+    while (length > 0U)
+    {
+        *dest++ = *src++;
+        length--;
+    }
+
+    return TRUE;
+}
+
+FUNC(boolean, FLS_CODE) Fls_HwCompare(
+    Fls_AddressType targetAddress, 
+    Fls_AddressType sourceAddress, 
+    Fls_LengthType length,
+)
+{
+    boolean ret = TRUE;
+    P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) dest 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) targetAddress;
+    P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) src 
+        = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) sourceAddress;
+
+    /* read data */
+    while (length > 0U)
+    {
+        if (*dest++ != *src++)
+        {
+            ret = FALSE;
+            break;
+        }
+        length--;
+    }
 
     return ret;
 }
-
-FUNC(boolean, FLS_CODE) Fls_HwCompare(void)
-{}
 
 #define FLS_STOP_SEC_CODE
 #include "Fls_MemMap.h"

@@ -59,64 +59,56 @@ STATIC CONST(Fls_SectorConfigType, FLS_CONST_PBCFG) Fls_SectorConfigData[7] =
         16*1024U,
         8U,
         2,
-        FLS_SPACE_ADDR_LOW,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_LOW
     },
     {
         0x00008000U,
         32*1024U,
         8U,
         2,
-        FLS_SPACE_ADDR_LOW,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_LOW
     },
     {
         0x00018000U,
         16*1024U,
         8U,
         2,
-        FLS_SPACE_ADDR_LOW,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_LOW
     },
     {
         0x00020000U,
         64*1024U,
         8U,
         2,
-        FLS_SPACE_ADDR_LOW,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_LOW
     },
     {
         0x00040000U,
         128*1024U,
         8U,
         2,
-        FLS_SPACE_ADDR_MID,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_MID
     },
     {
         0x00080000U,
         128*1024U,
         8U,
         4
-        FLS_SPACE_ADDR_HIGH,
-        FLS_BANK_1
+        FLS_BANK1ARRAY1_HIHG
     },
     {
         0x00100000U,
         128*1024U,
         8U,
         4,
-        FLS_SPACE_ADDR_HIGH,
-        FLS_BANK_2
+        FLS_BANK1ARRAY2_HIHG
     },
     {
         0x00FFC000U,
         16*1024U,
         8U,
         1,
-        FLS_SPACE_ADDR_SHADOW,
-        FLS_BANK_0
+        FLS_BANK0ARRAY0_SHADOW
     }
 };
 #define FLS_STOP_CONST_PBCFG

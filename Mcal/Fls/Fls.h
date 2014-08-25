@@ -50,22 +50,14 @@
 typedef Fls_AddressType  uint32;
 typedef Fls_LengthType   uint32;
 
-typedef enum
-{
-    FLS_BANK0ARRAY0_LOW     = 0x00,
-    FLS_BANK0ARRAY0_MID     = 0x01,
-    FLS_BANK1ARRAY1_HIHG    = 0x12,
-    FLS_BANK1ARRAY2_HIHG    = 0x22,
-    FLS_BANK0ARRAY0_SHADOW  = 0x03,
-} Fls_HwAddrSpaceType;
-
 typedef struct
 {
     Fls_AddressType      FlsSectorStartAddr;
     Fls_LengthType       FlsSectorSize;
     Fls_LengthType       FlsPageSize;
     Fls_LengthType       FlsNumberOfSectors;
-    Fls_HwAddrSpaceType  FlsAddrSpace;
+    uint32               FlsStartBlock;
+    uint8                FlsAddrSpace;
 } Fls_SectorConfigType;
 
 typedef struct
