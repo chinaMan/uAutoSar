@@ -73,9 +73,14 @@
 #endif /* STD_ON == FLS_DEM_ERROR_DETECT */
 
 /*=======[M A C R O S]========================================================*/
-
+#if (FLS_VARIANT_PB == FLS_VARIANT_CFG)   
+#define FLS_CONFIG() Fls_RtData.ConfigPtr
+#else
+#define FLS_CONFIG() &Fls_ConfigData
+#endif /* #if (FLS_VARIANT_PB == FLS_VARIANT_CFG) */
 
 /*=======[T Y P E   D E F I N I T I O N S]====================================*/
+/* job type */
 typedef enum
 {
     FLS_JOB_NONE,
@@ -85,6 +90,7 @@ typedef enum
     FLS_JOB_WRITE
 } Fls_JobType;
 
+/* the runtimg data structure of flash */
 typedef struct
 {
     P2CONST(Can_ConfigType, CAN_CONST, CAN_CONST_PBCFG) ConfigPtr;
@@ -98,16 +104,6 @@ typedef struct
 } Fls_RtType;
 
 /*=======[I N T E R N A L   D A T A]==========================================*/
-#if(STD_ON == FLS_DEV_ERROR_DETECT)
-/* @req <FLS103> */
-/* can module status:(CAN_UNINIT, CAN_READY) */
-#define FLS_START_SEC_VAR_POWER_ON_INIT_UNSPECIFIED
-#include "Fls_MemMap.h"
-STATIC VAR(boolean, FLS_VAR_POWER_ON_INIT) Fls_IsInited = FALSE;
-#define FLS_STOP_SEC_VAR_POWER_ON_INIT_UNSPECIFIED
-#include "Fls_MemMap.h"
-#endif /* STD_ON == FLS_DEV_ERROR_DETECT */
-
 /* Controller Runtime structure */
 #define FLS_START_SEC_VAR_NOINIT_UNSPECIFIED
 #include "Fls_MemMap.h"
@@ -118,10 +114,15 @@ STATIC VAR(Fls_RtType, FLS_VAR) Fls_RtData;
 #define FLS_START_SEC_CODE
 #include "Fls_MemMap.h"
 /*=======[I N T E R N A L   F U N C T I O N   D E C L A R A T I O N S]========*/
-STATIC FUNC(boolean, FLS_CODE) Fls_HwInit(void);
-STATIC FUNC(boolean, FLS_CODE) Fls_HwErase(void);
-STATIC FUNC(boolean, FLS_CODE) Fls_HwWrite(void);
-STATIC FUNC(boolean, FLS_CODE) Fls_HwRead(void);
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckPageStartAlign(Fls_AddressType addr);
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckPageEndAlign(Fls_AddressType addr);
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckSectorStartAlign(Fls_AddressType addr);
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckSectorEndAlign(Fls_AddressType addr);
+
+STATIC FUNC(void, FLS_CODE) Fls_JobErase(void)
+STATIC FUNC(void, FLS_CODE) Fls_JobRead(void)
+STATIC FUNC(void, FLS_CODE) Fls_JobWrite(void)
+STATIC FUNC(void, FLS_CODE) Fls_JobCompare(void)
 
 /*=======[F U N C T I O N   I M P L E M E N T A T I O N S]====================*/
 /******************************************************************************/
@@ -208,11 +209,11 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Erase
     {                                                           
         Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_ERASE_ID, FLS_E_BUSY);
     }
-    else if (TRUE == Fls_IsAddrAligned(TargetAddress))                                          
+    else if (TRUE == Fls_CheckSectorStartAlign(TargetAddress))                                          
     {                                                                   
         Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_ERASE_ID, FLS_E_PARAM_ADDRESS);
     }
-    else if (TRUE == Fls_IsAddrAligned(TargetAddress+Length))                                          
+    else if ((Length <= 0U) && (TRUE == Fls_CheckSectorEndAlign(TargetAddress+Length)))
     {                                                                   
         Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_ERASE_ID, FLS_E_PARAM_LENGTH);
     }
@@ -252,7 +253,44 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Write
     Fls_LengthType Length
 )
 {
+    Std_ReturnType ret = E_NOT_OK;
 
+    #if (FLS_DEV_ERROR_DETECT == STD_ON)
+    if (MEMIF_UNINIT == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_WRITE_ID, FLS_E_UNINIT);
+    }
+    else if (MEMIF_BUSY == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_WRITE_ID, FLS_E_BUSY);
+    }
+    else if (TRUE == Fls_CheckPageStartAlign(TargetAddress))                                          
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_WRITE_ID, FLS_E_PARAM_ADDRESS);
+    }
+    else if ((Length <= 0U) && ((FALSE == Fls_CheckPageEndAlign(TargetAddress+Length))))
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_WRITE_ID, FLS_E_PARAM_LENGTH);
+    }
+    else if (NULL_PTR == SourceAddressPtr)
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_WRITE_ID, FLS_E_PARAM_POINTER);
+    }
+    else
+    #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
+    {
+        /* @req <FLS224> */
+        Fls_RtData.Status    = MEMIF_BUSY;
+        Fls_RtData.JobResult = MEMIF_JOB_PENDING;
+        Fls_RtData.Job       = FLS_JOB_WRITE;
+        Fls_RtData.SourceAddress = TargetAddress;
+        Fls_RtData.TargetAddress = SourceAddressPtr;
+        Fls_RtData.Length    = Length;
+
+        ret = E_OK;
+    }
+
+    return ret;
 }
 
 /******************************************************************************/
@@ -304,7 +342,8 @@ FUNC(MemIf_StatusType, FLS_CODE) Fls_GetStatus(void);
  */
 /******************************************************************************/
 #if (FLS_GET_JOB_RESULT_API == STD_ON)
-FUNC(MemIf_JobResultType, FLS_CODE) Fls_GetJobResult(void);
+FUNC(MemIf_JobResultType, FLS_CODE) Fls_GetJobResult(void)
+{}
 #endif
 
 /******************************************************************************/
@@ -335,24 +374,21 @@ FUNC(void, FLS_CODE) Fls_MainFunction(void)
             switch (Fls_RtData.Job)
             {
                 case FLS_JOB_ERASE:
-                    if (TRUE == Fls_HwErase(void))
-                    {
-                        Fls_RtData.Job       = FLS_JOB_NONE;
-                        Fls_RtData.JobResult = MEMIF_JOB_FAILED;
-                        Fls_RtData.Status    = MEMIF_IDLE;
-                    }
-                    else
-                    {
-                        if (Fls_RtData.Length <= 0x0U)
-                        {
-                            Fls_RtData.Job       = FLS_JOB_NONE;
-                            Fls_RtData.JobResult = MEMIF_JOB_OK;
-                            Fls_RtData.Status    = MEMIF_IDLE;
-                        }
-                    }
+                    Fls_JobErase();
                     break;
-            }
-        }
+                case FLS_JOB_COMPARE:
+                    Fls_JobCompare();
+                    break;
+                case FLS_JOB_WRITE:
+                    Fls_JobWrite();
+                    break;
+                case FLS_JOB_READ:
+                    Fls_JobRead();
+                    break;
+                defult:
+                    break;
+            } /* switch (Fls_RtData.Job) */
+        } /* if (MEMIF_JOB_PENDING == Fls_RtData.JobResult) */
     }  
 }
 
@@ -374,7 +410,46 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Read
     Fls_AddressType SourceAddress,
     P2VAR(uint8, AUTOMATIC, FLS_APPL_DATA) TargetAddressPtr, 
     Fls_LengthType Length
-);
+)
+{
+    Std_ReturnType ret = E_NOT_OK;
+
+    #if (FLS_DEV_ERROR_DETECT == STD_ON)
+    if (MEMIF_UNINIT == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_READ_ID, FLS_E_UNINIT);
+    }
+    else if (MEMIF_BUSY == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_READ_ID, FLS_E_BUSY);
+    }
+    else if (TRUE == Fls_CheckPageStartAlign(SourceAddress))                                          
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_READ_ID, FLS_E_PARAM_ADDRESS);
+    }
+    else if (TRUE == Fls_CheckPageEndAlign(SourceAddress+Length))
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_READ_ID, FLS_E_PARAM_LENGTH);
+    }
+    else if (NULL_PTR == TargetAddressPtr)
+    {                                                                   
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_READ_ID, FLS_E_PARAM_POINTER);
+    }
+    else
+    #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
+    {
+        /* @req <FLS237> */
+        Fls_RtData.Status    = MEMIF_BUSY;
+        Fls_RtData.JobResult = MEMIF_JOB_PENDING;
+        Fls_RtData.Job       = FLS_JOB_READ;
+        Fls_RtData.SourceAddress = TargetAddress;
+        Fls_RtData.Length    = Length;
+
+        ret = E_OK;
+    }
+
+    return ret;
+}
 
 /******************************************************************************/
 /*
@@ -396,7 +471,8 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Compare
     Fls_AddressType SourceAddress, 
     P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) TargetAddressPtr, 
     Fls_LengthType Length 
-);
+)
+{}
 #endif
 
 /******************************************************************************/
@@ -413,20 +489,271 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Compare
  */
 /******************************************************************************/
 #if (FLS_SET_MODE_API == STD_ON)
-FUNC(void,FLS_CODE) Fls_SetMode(MemIf_ModeType Mode);
+FUNC(void,FLS_CODE) Fls_SetMode(MemIf_ModeType Mode)
+{}
 #endif
 
-STATIC FUNC(boolean, FLS_CODE) Fls_HwInit(void)
-{}
+STATIC FUNC(P2VAR(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA), FLS_CODE) 
+Fls_FindSectorConfig(Fls_AddressType addr) 
+{
+    uint32 i = 0x0U;
+    Fls_AddressType sectorStartAddr = 0x0U;
+    Fls_LengthType sectorSize = 0x0U;
+    Fls_LengthType num = 0x0U;
+    P2VAR(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorConfig = NULL_PTR;
 
-STATIC FUNC(boolean, FLS_CODE) Fls_HwErase(void)
-{}
+    for (i = 0; i < FLS_CONFIG->FlsSectorListSize; i++)
+    {
+        sectorStartAddr = FLS_CONFIG->FlsSectorList[i]->FlsSectorStartAddr;
+        sectorSize = FLS_CONFIG->FlsSectorList[i]->FlsSectorSize;
+        num = FLS_CONFIG->FlsSectorList[i]->FlsNumberOfSectors;
 
-STATIC FUNC(boolean, FLS_CODE) Fls_HwWrite(void)
-{}
+        if ((addr >= sectorStartAddr) 
+            && (addr < (sectorStartAddr+num * sectorSize)))
+        {
+            sectorConfig = FLS_CONFIG->FlsSectorList[i];
+            break;
+        }
+    }
 
-STATIC FUNC(boolean, FLS_CODE) Fls_HwRead(void)
-{}
+    return sectorConfig;
+}
+
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckPageStartAlign(Fls_AddressType addr)
+{
+    boolean ret = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    sectorCfg = Fls_FindSectorConfig(addr);
+
+    if ((NULL_PTR != sectorCfg) 
+            && (0U == (addr - sectorCfg->FlsSectorStartAddr) % sectorCfg->FlsPageSize))
+    {
+        ret = TRUE;
+    }
+
+    return ret;
+}
+
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckPageEndAlign(Fls_AddressType addr)
+{
+    boolean ret = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    sectorCfg = Fls_FindSectorConfig(addr);
+
+    if ((NULL_PTR != sectorCfg) 
+            && ((pageSize - 1U) == (addr - sectorCfg->FlsSectorStartAddr) % sectorCfg->FlsPageSize))
+    {
+        ret = TRUE;
+    }
+
+    return ret;
+}
+
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckSectorStartAlign(Fls_AddressType addr)
+{
+    boolean ret = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    sectorCfg = Fls_FindSectorConfig(addr);
+
+    if ((NULL_PTR != sectorCfg) 
+            && (0U == (addr - sectorCfg->FlsSectorStartAddr) % sectorCfg->FlsSectorSize))
+    {
+        ret = TRUE;
+    }
+
+    return ret;
+}
+
+STATIC FUNC(boolean, FLS_CODE) Fls_CheckSectorEndAlign(Fls_AddressType addr)
+{
+    boolean ret = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    sectorCfg = Fls_FindSectorConfig(addr);
+
+    if ((NULL_PTR != sectorCfg) 
+            && ((sectorSize - 1U) == (addr - sectorCfg->FlsSectorStartAddr) % sectorCfg->FlsSectorSize))
+    {
+        ret = TRUE;
+    }
+
+    return ret;
+}
+
+STATIC FUNC(void, FLS_CODE) Fls_JobErase(void)
+{
+    boolean jobRet = FALSE;
+    Fls_LengthType sectorSize = 0x0U;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    sectorCfg = Fls_FindSectorConfig(Fls_RtData.SourceAddress);
+
+    sectorSize = sectorCfg->FlsSectorSize;
+
+    jobRet = Fls_HwErase(Fls_RtData.SourceAddress, sectorCfg);
+
+    if (FALSE == jobRet) /* job fail */
+    {
+        Fls_RtData.Job       = FLS_JOB_NONE;
+        Fls_RtData.Status    = MEMIF_IDLE;
+        Fls_RtData.JobResult = MEMIF_JOB_FAIL;
+
+        FLS_JOB_ERROR_NOTIFICATION();
+    }  
+    else
+    {
+        Fls_RtData.SourceAddressPtr += sectorSize;
+        Fls_RtData.Length -= sectorSize;
+
+        if (Fls_RtData.Length <= 0x0U) /* job success */
+        {
+            Fls_RtData.Job       = FLS_JOB_NONE;
+            Fls_RtData.Status    = MEMIF_IDLE;
+            Fls_RtData.JobResult = MEMIF_JOB_OK;
+
+            FLS_JOB_END_NOTIFICATION();
+        }
+    }
+
+    return;
+}
+
+STATIC FUNC(void, FLS_CODE) Fls_JobWrite(void)
+{
+    Fls_LengthType length = 0x0U;
+    boolean jobRet = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    /* calc length of write once */
+    sectorCfg = Fls_FindSectorConfig(Fls_RtData.SourceAddress);
+    if (MEMIF_MODE_SLOW == Fls_RtData.Mode)
+    {
+        length = FLS_CONFIG->FlsMaxWriteNomralMode * sectorCfg->FlsPageSize;
+    }
+    else
+    {
+        length = FLS_CONFIG->FlsMaxWriteFastMode * sectorCfg->FlsPageSize;
+    }
+    if (Fls_RtData.Length < length)
+    {
+        length = Fls_RtData.Length;
+    }
+
+    jobRet = Fls_HwWrite(Fls_RtData.SourceAddress, Fls_RtData.TargetAddress, length);
+
+    if (FALSE == jobRet) /* job fail */
+    {
+        Fls_RtData.Job       = FLS_JOB_NONE;
+        Fls_RtData.Status    = MEMIF_IDLE;
+        Fls_RtData.JobResult = MEMIF_JOB_FAIL;
+
+        FLS_JOB_ERROR_NOTIFICATION();
+    }  
+    else
+    {
+        Fls_RtData.SourceAddressPtr += length;
+        Fls_RtData.TargetAddress += length;
+        Fls_RtData.Length -= length;
+
+        if (Fls_RtData.Length <= 0x0U) /* job success */
+        {
+            Fls_RtData.Job       = FLS_JOB_NONE;
+            Fls_RtData.Status    = MEMIF_IDLE;
+            Fls_RtData.JobResult = MEMIF_JOB_OK;
+
+            FLS_JOB_END_NOTIFICATION();
+        }
+    }
+
+    return;
+}
+
+STATIC FUNC(void, FLS_CODE) Fls_JobRead(void)
+{
+    Fls_LengthType length = 0x0U;
+    boolean jobRet = FALSE;
+    P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg;
+
+    /* calc length of write once */
+    sectorCfg = Fls_FindSectorConfig(Fls_RtData.SourceAddress);
+    if (MEMIF_MODE_SLOW == Fls_RtData.Mode)
+    {
+        length = FLS_CONFIG->FlsMaxReadNomralMode * sectorCfg->FlsPageSize;
+    }
+    else
+    {
+        length = FLS_CONFIG->FlsMaxReadFastMode * sectorCfg->FlsPageSize;
+    }
+    if (Fls_RtData.Length < length)
+    {
+        length = Fls_RtData.Length;
+    }
+
+    jobRet = Fls_HwRead(Fls_RtData.SourceAddress, Fls_RtData.TargetAddress, length);
+
+    if (FALSE == jobRet) /* job fail */
+    {
+        Fls_RtData.Job       = FLS_JOB_NONE;
+        Fls_RtData.Status    = MEMIF_IDLE;
+        Fls_RtData.JobResult = MEMIF_JOB_FAIL;
+
+        FLS_JOB_ERROR_NOTIFICATION();
+    }  
+    else
+    {
+        Fls_RtData.SourceAddressPtr += length;
+        Fls_RtData.TargetAddress += length;
+        Fls_RtData.Length -= length;
+
+        if (Fls_RtData.Length <= 0x0U) /* job success */
+        {
+            Fls_RtData.Job       = FLS_JOB_NONE;
+            Fls_RtData.Status    = MEMIF_IDLE;
+            Fls_RtData.JobResult = MEMIF_JOB_OK;
+
+            FLS_JOB_END_NOTIFICATION();
+        }
+    }
+
+    return;
+}
+
+STATIC FUNC(void, FLS_CODE) Fls_JobCompare(void)
+{
+    Fls_LengthType length = 0x0U;
+    boolean jobRet = FALSE;
+
+    jobRet = Fls_HwCompare(Fls_RtData.SourceAddress, Fls_RtData.TargetAddress, length);
+
+    if (FALSE == jobRet) /* job fail */
+    {
+        Fls_RtData.Job       = FLS_JOB_NONE;
+        Fls_RtData.Status    = MEMIF_IDLE;
+        Fls_RtData.JobResult = MEMIF_JOB_FAIL;
+
+        FLS_JOB_ERROR_NOTIFICATION();
+    }  
+    else
+    {
+        Fls_RtData.SourceAddressPtr += length;
+        Fls_RtData.TargetAddress += length;
+        Fls_RtData.Length -= length;
+
+        if (Fls_RtData.Length <= 0x0U) /* job success */
+        {
+            Fls_RtData.Job       = FLS_JOB_NONE;
+            Fls_RtData.Status    = MEMIF_IDLE;
+            Fls_RtData.JobResult = MEMIF_JOB_OK;
+
+            FLS_JOB_END_NOTIFICATION();
+        }
+    }
+
+    return;
+}
 
 #define FLS_STOP_SEC_CODE
 #include "Fls_MemMap.h"

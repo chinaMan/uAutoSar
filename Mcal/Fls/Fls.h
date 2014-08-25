@@ -50,11 +50,22 @@
 typedef Fls_AddressType  uint32;
 typedef Fls_LengthType   uint32;
 
+typedef enum
+{
+    FLS_BANK0ARRAY0_LOW     = 0x00,
+    FLS_BANK0ARRAY0_MID     = 0x01,
+    FLS_BANK1ARRAY1_HIHG    = 0x12,
+    FLS_BANK1ARRAY2_HIHG    = 0x22,
+    FLS_BANK0ARRAY0_SHADOW  = 0x03,
+} Fls_HwAddrSpaceType;
+
 typedef struct
 {
-    Fls_AddressType    FlsSectorStartAddr;
-    Fls_LengthType     FlsSectorSize;
-    Fls_LengthType     FlsPageSize;
+    Fls_AddressType      FlsSectorStartAddr;
+    Fls_LengthType       FlsSectorSize;
+    Fls_LengthType       FlsPageSize;
+    Fls_LengthType       FlsNumberOfSectors;
+    Fls_HwAddrSpaceType  FlsAddrSpace;
 } Fls_SectorConfigType;
 
 typedef struct
@@ -69,6 +80,8 @@ typedef struct
     uint8    FlsMaxWriteFastMode;
     uint8    FlsMaxWriteNomralMode;
     uint32   FlsProtection;
+    uint32   FlsSectorListSize;
+    P2CONST(Fls_SectorConfigType, FLS_CONST, FLS_CONST_PBCFG) FlsSectorList;
 } Fls_ConfigType;
 
 /*=======[E X T E R N A L   F U N C T I O N   D E C L A R A T I O N S]========*/
