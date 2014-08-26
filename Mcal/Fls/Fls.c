@@ -74,10 +74,26 @@
 
 /*=======[M A C R O S]========================================================*/
 #if (FLS_VARIANT_PB == FLS_VARIANT_CFG)   
-#define FLS_CONFIG() Fls_RtData.ConfigPtr
+#define FLS_CONFIG Fls_RtData.ConfigPtr
 #else
-#define FLS_CONFIG() &Fls_ConfigData
+#define FLS_CONFIG &Fls_ConfigData
 #endif /* #if (FLS_VARIANT_PB == FLS_VARIANT_CFG) */
+
+#define FLS_JOB_ERROR_NOTIFICATION()   \
+    do {                               \
+        if (NULL_PTR != FLS_CONFIG->FlsJobEndNotification) \
+        {                              \
+            FLS_CONFIG->FlsJobEndNotification(); \
+        }                              \
+    } while(0)
+
+#define FLS_JOB_END_NOTIFICATION()     \
+    do {                               \
+        if (NULL_PTR != FLS_CONFIG->FlsJobEndNotification) \
+        {                              \
+            FLS_CONFIG->FlsJobEndNotification(); \
+        }                              \
+    } while(0)
 
 /*=======[T Y P E   D E F I N I T I O N S]====================================*/
 /* job type */
@@ -93,13 +109,16 @@ typedef enum
 /* the runtimg data structure of flash */
 typedef struct
 {
+    #if (FLS_VARIANT_PB == FLS_VARIANT_CFG)   
     P2CONST(Can_ConfigType, CAN_CONST, CAN_CONST_PBCFG) ConfigPtr;
+    #endif
     MemIf_StatusType      Status;
     MemIf_ModeType        Mode;
 
     Fls_JobType           Job;
     MemIf_JobResultType   JobResult;
     Fls_AddressType       SourceAddr;
+    Fls_AddressType       TargetAddr;
     Fls_LengthType        Length;
 } Fls_RtType;
 
@@ -163,20 +182,23 @@ FUNC(void, FLS_CODE) Fls_Init
         #endif /* #if (FLS_VARIANT_PB == FLS_VARIANT_CFG) */
 
         /* init runtime data structure */
-        Fls_RtData.Status = MEMIF_UNINIT;
-        Fls_RtData.Mode   = MEMIF_MODE_SLOW;
-        Fls_RtData.Job    = FLS_JOB_NONE;
-        Fls_RtData.SourceAddress = 0x0U;
-        Fls_RtData.Length = 0x0U;
+        Fls_RtData.Status      = MEMIF_UNINIT;
+        Fls_RtData.Mode        = MEMIF_MODE_SLOW;
+        Fls_RtData.Job         = FLS_JOB_NONE;
+        Fls_RtData.SourceAddr  = 0x0U;
+        Fls_RtData.TargetAddr  = 0x0U;
+        Fls_RtData.Length      = 0x0U;
 
         /* @req <FLS014> */
         /* init flash hardware */
-        Fls_HwInit();
+        (void)Fls_HwInit(FLS_CONFIG);
 
         /* @req <FLS016> */
         Fls_RtData.Status    = MEMIF_IDLE;
         Fls_RtData.JobResult = MEMIF_JOB_OK;
     }
+
+    return;
 }
 
 /******************************************************************************/
@@ -221,11 +243,16 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Erase
     #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
     {
         /* @req <FLS219> */
-        Fls_RtData.Status    = MEMIF_BUSY;
-        Fls_RtData.JobResult = MEMIF_JOB_PENDING;
-        Fls_RtData.Job       = FLS_JOB_ERASE;
-        Fls_RtData.SourceAddress = TargetAddress;
-        Fls_RtData.Length    = Length;
+        Fls_RtData.Status     = MEMIF_BUSY;
+        Fls_RtData.JobResult  = MEMIF_JOB_PENDING;
+        Fls_RtData.Job        = FLS_JOB_ERASE;
+        Fls_RtData.SourceAddr = TargetAddress;
+        Fls_RtData.Length     = Length;
+
+        /* @req <FLS145> */
+        #if (STD_ON == FLS_USE_INTERRUPTS)              
+        Fls_JobErase();
+        #endif
 
         ret = E_OK;
     }
@@ -280,12 +307,17 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Write
     #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
     {
         /* @req <FLS224> */
-        Fls_RtData.Status    = MEMIF_BUSY;
-        Fls_RtData.JobResult = MEMIF_JOB_PENDING;
-        Fls_RtData.Job       = FLS_JOB_WRITE;
-        Fls_RtData.SourceAddress = TargetAddress;
-        Fls_RtData.TargetAddress = SourceAddressPtr;
-        Fls_RtData.Length    = Length;
+        Fls_RtData.Status     = MEMIF_BUSY;
+        Fls_RtData.JobResult  = MEMIF_JOB_PENDING;
+        Fls_RtData.Job        = FLS_JOB_WRITE;
+        Fls_RtData.SourceAddr = TargetAddress;
+        Fls_RtData.TargetAddr = SourceAddressPtr;
+        Fls_RtData.Length     = Length;
+
+        /* @req <FLS146> */
+        #if (STD_ON == FLS_USE_INTERRUPTS)              
+        Fls_JobWrite();
+        #endif
 
         ret = E_OK;
     }
@@ -308,7 +340,33 @@ FUNC(Std_ReturnType, FLS_CODE) Fls_Write
 /******************************************************************************/
 #if (FLS_CANCEL_API == STD_ON)
 FUNC(void, FLS_CODE) Fls_Cancel(void)
-{}
+{
+    #if (FLS_DEV_ERROR_DETECT == STD_ON)
+    if (MEMIF_UNINIT == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_CANCEL_ID, FLS_E_UNINIT);
+    }
+    else
+    #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
+    {
+        /* @req <FLS230> */
+        /* @req <FLS032> */
+        Fls_RtData.SourceAddr = 0x0U;
+        Fls_RtData.TargetAddr = 0x0U;
+        Fls_RtData.Length     = 0x0U;
+        Fls_RtData.Status     = MEMIF_IDLE;
+        Fls_RtData.Job        = FLS_JOB_NONE;
+
+        /* @req <FLS033> */
+        if (MEMIF_JOB_PENDING == Fls_RtData.JobResult)
+        {
+            Fls_RtData.JobResult = MEMIF_JOB_CANCELED;
+        }
+
+        /* @req <FLS147> */
+        FLS_JOB_ERROR_NOTIFICATION();
+    }
+}
 #endif
 
 /******************************************************************************/
@@ -324,8 +382,25 @@ FUNC(void, FLS_CODE) Fls_Cancel(void)
  * PreCondition        <None>  
  */
 /******************************************************************************/
-#if (FLS_GET_STATUS_API == STD_ON)
-FUNC(MemIf_StatusType, FLS_CODE) Fls_GetStatus(void);
+#if (STD_ON == FLS_GET_STATUS_API)
+FUNC(MemIf_StatusType, FLS_CODE) Fls_GetStatus(void)
+{
+    MemIf_StatusType status;
+
+    #if (FLS_DEV_ERROR_DETECT == STD_ON)
+    if (MEMIF_UNINIT == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_GETSTATUS_ID, FLS_E_UNINIT);
+        status = MEMIF_UNINIT;
+    }
+    else
+    #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
+    {
+        status = Fls_RtData.Status;
+    }
+
+    return status;
+}
 #endif
 
 /******************************************************************************/
@@ -341,9 +416,25 @@ FUNC(MemIf_StatusType, FLS_CODE) Fls_GetStatus(void);
  * PreCondition        <None>  
  */
 /******************************************************************************/
-#if (FLS_GET_JOB_RESULT_API == STD_ON)
+#if (STD_ON == FLS_GET_JOB_RESULT_API)
 FUNC(MemIf_JobResultType, FLS_CODE) Fls_GetJobResult(void)
-{}
+{
+    MemIf_JobResultType jobResult;
+
+    #if (FLS_DEV_ERROR_DETECT == STD_ON)
+    if (MEMIF_UNINIT == Fls_RtData.Status)                                  
+    {                                                           
+        Det_ReportError(FLS_MODULE_ID, CAN_INSTANCE, CAN_GETSTATUS_ID, FLS_E_UNINIT);
+        jobResult = MEMIF_JOB_FAIL;
+    }
+    else
+    #endif  /* #if (FLS_DEV_ERROR_DETECT == STD_ON) */
+    {
+        jobResult = Fls_RtData.JobResult;
+    }
+
+    return jobResult;
+}
 #endif
 
 /******************************************************************************/
@@ -376,11 +467,11 @@ FUNC(void, FLS_CODE) Fls_MainFunction(void)
                 case FLS_JOB_ERASE:
                     Fls_JobErase();
                     break;
-                case FLS_JOB_COMPARE:
-                    Fls_JobCompare();
-                    break;
                 case FLS_JOB_WRITE:
                     Fls_JobWrite();
+                    break;
+                case FLS_JOB_COMPARE:
+                    Fls_JobCompare();
                     break;
                 case FLS_JOB_READ:
                     Fls_JobRead();
@@ -583,6 +674,7 @@ STATIC FUNC(boolean, FLS_CODE) Fls_CheckSectorEndAlign(Fls_AddressType addr)
     return ret;
 }
 
+STATIC FUNC(boolean, FLS_CODE) Fls_Check(Fls_AddressType addr)
 STATIC FUNC(void, FLS_CODE) Fls_JobErase(void)
 {
     boolean jobRet = FALSE;
@@ -600,8 +692,10 @@ STATIC FUNC(void, FLS_CODE) Fls_JobErase(void)
         Fls_RtData.Job       = FLS_JOB_NONE;
         Fls_RtData.Status    = MEMIF_IDLE;
         Fls_RtData.JobResult = MEMIF_JOB_FAIL;
-
         FLS_JOB_ERROR_NOTIFICATION();
+
+        /* @req <FLS104> */
+        Dem_ReportErrorStatus(CAN_E_ERASE_FAILED, DEM_EVENT_STATUS_FAILED);
     }  
     else
     {
@@ -610,6 +704,7 @@ STATIC FUNC(void, FLS_CODE) Fls_JobErase(void)
 
         if (Fls_RtData.Length <= 0x0U) /* job success */
         {
+            /* @req <FLS052> */
             Fls_RtData.Job       = FLS_JOB_NONE;
             Fls_RtData.Status    = MEMIF_IDLE;
             Fls_RtData.JobResult = MEMIF_JOB_OK;
@@ -654,6 +749,9 @@ STATIC FUNC(void, FLS_CODE) Fls_JobWrite(void)
         Fls_RtData.JobResult = MEMIF_JOB_FAIL;
 
         FLS_JOB_ERROR_NOTIFICATION();
+
+        /* @req <FLS105> */
+        Dem_ReportErrorStatus(CAN_E_WRITE_FAILED, DEM_EVENT_STATUS_FAILED);
     }  
     else
     {
@@ -663,6 +761,7 @@ STATIC FUNC(void, FLS_CODE) Fls_JobWrite(void)
 
         if (Fls_RtData.Length <= 0x0U) /* job success */
         {
+            /* @req <FLS052> */
             Fls_RtData.Job       = FLS_JOB_NONE;
             Fls_RtData.Status    = MEMIF_IDLE;
             Fls_RtData.JobResult = MEMIF_JOB_OK;
@@ -704,6 +803,9 @@ STATIC FUNC(void, FLS_CODE) Fls_JobRead(void)
         Fls_RtData.JobResult = MEMIF_JOB_FAIL;
 
         FLS_JOB_ERROR_NOTIFICATION();
+
+        /* @req <FLS106> */
+        Dem_ReportErrorStatus(CAN_E_READ_FAILED, DEM_EVENT_STATUS_FAILED);
     }  
     else
     {
@@ -713,6 +815,7 @@ STATIC FUNC(void, FLS_CODE) Fls_JobRead(void)
 
         if (Fls_RtData.Length <= 0x0U) /* job success */
         {
+            /* @req <FLS052> */
             Fls_RtData.Job       = FLS_JOB_NONE;
             Fls_RtData.Status    = MEMIF_IDLE;
             Fls_RtData.JobResult = MEMIF_JOB_OK;
@@ -733,11 +836,15 @@ STATIC FUNC(void, FLS_CODE) Fls_JobCompare(void)
 
     if (FALSE == jobRet) /* job fail */
     {
+        /* @req <FLS200> */
         Fls_RtData.Job       = FLS_JOB_NONE;
         Fls_RtData.Status    = MEMIF_IDLE;
-        Fls_RtData.JobResult = MEMIF_JOB_FAIL;
+        Fls_RtData.JobResult = MEMIF_BLOCK_INCONSISENT;
 
         FLS_JOB_ERROR_NOTIFICATION();
+
+        /* @req <FLS154> */
+        Dem_ReportErrorStatus(CAN_E_COMPARE_FAILED, DEM_EVENT_STATUS_FAILED);
     }  
     else
     {
@@ -747,6 +854,7 @@ STATIC FUNC(void, FLS_CODE) Fls_JobCompare(void)
 
         if (Fls_RtData.Length <= 0x0U) /* job success */
         {
+            /* @req <FLS052> */
             Fls_RtData.Job       = FLS_JOB_NONE;
             Fls_RtData.Status    = MEMIF_IDLE;
             Fls_RtData.JobResult = MEMIF_JOB_OK;

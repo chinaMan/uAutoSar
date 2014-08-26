@@ -50,7 +50,7 @@
 #endif /* FLS_C_SW_MINOR_VERSION != FLS_H_SW_MINOR_VERSION */
 
 /*=======[M A C R O S]========================================================*/
-#define FLS_HW_BLOCK_UNLOCK(addrSpace)           \
+#define FLS_HW_ADDRSPACE_UNLOCK(addrSpace)       \
     do{                                          \
         switch ((addrSpace))                     \
         {                                        \
@@ -72,7 +72,7 @@
         }                                        \
     }while(0)
 
-#define FLS_HW_BLOCK_LOCK(addrSpace)             \
+#define FLS_HW_ADDRSPACE_LOCK(addrSpace)             \
     do{                                          \
         switch ((addrSpace))                     \
         {                                        \
@@ -125,7 +125,10 @@
 /*=======[I N T E R N A L   F U N C T I O N   D E C L A R A T I O N S]========*/
 
 /*=======[F U N C T I O N   I M P L E M E N T A T I O N S]====================*/
-FUNC(boolean, FLS_CODE) Fls_HwInit(void)
+FUNC(boolean, FLS_CODE) Fls_HwInit 
+(
+    P2CONST(Fls_ConfigType, AUTOMATIC, FLS_APPL_DATA) ConfigPtr
+)
 {
     Fls_CtrlRegs[0]->Sll = FLS_SLL_PASSWORD; 
     Fls_CtrlRegs[0]->Lml = FLS_LML_PASSWORD; 
@@ -134,9 +137,9 @@ FUNC(boolean, FLS_CODE) Fls_HwInit(void)
 
     Fls_CtrlRegs[0]->Sll = FLS_SLL_UNLOCK; 
 
-    Fls_CtrlRegs[0]->Lml = FLS_LML_LOCK; 
-    Fls_CtrlRegs[1]->Hlr = FLS_HLR_LOCK; 
-    Fls_CtrlRegs[2]->Hlr = FLS_HLR_LOCK; 
+    Fls_CtrlRegs[0]->Lml = FLS_LML_UNLOCK; 
+    Fls_CtrlRegs[1]->Hlr = FLS_HLR_UNLOCK; 
+    Fls_CtrlRegs[2]->Hlr = FLS_HLR_UNLOCK; 
 
     return TRUE;
 }
@@ -144,32 +147,33 @@ FUNC(boolean, FLS_CODE) Fls_HwInit(void)
 FUNC(boolean, FLS_CODE) Fls_HwErase(Fls_AddressType addr, 
     P2CONST(Fls_SectorConfigType, AUTOMATIC, FLS_APPL_DATA) sectorCfg)
 {
-    uint8 blockIdx  = (addr - sectorCfg->FlsSectorStartAddr) / sectorCfg->FlsSectorSize 
+    uint8 blockIdx  = (addr-sectorCfg->FlsSectorStartAddr)/sectorCfg->FlsSectorSize 
                       + sectorCfg->FlsStartBlock;
     Fls_HwAddrSpaceType addrSpace = sectorCfg->FlsAddrSpace;
     uint8 flsIdx    = addrSpace >> 4U;
     boolean ret = FALSE;
 
-    /* unlock this block */
-    FLS_HW_BLOCK_UNLOCK(addrSpace);
-    
     /* 
      * erase block step 
      */
     Fls_CtrlRegs[flsIdx]->MCR |= FLS_MCR_ERS;
+
     FLS_HW_BLOCK_SELECT(flsIdx, blockIdx);
+
     *sectorCfg->FlsSectorStartAddr = 0xDEADBEEF;
+
     Fls_CtrlRegs[flsIdx]->MCR |= FLS_MCR_EHV;
+
     while (FLS_MCR_DONE != (Fls_CtrlRegs[flsIdx]->MCR & FLS_MCR_DONE));
+
     if (FLS_MCR_PEG != (Fls_CtrlRegs[flsIdx]->MCR & FLS_MCR_PEG))
     {
         ret = FALSE;
     }
-    Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_EHV;
-    Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_ERS;
 
-    /* lock this block */
-    FLS_HW_BLOCK_LOCK(flsIdx);
+    Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_EHV;
+
+    Fls_CtrlRegs[flsIdx]->MCR &= ~FLS_MCR_ERS;
 
     return ret;
 }
@@ -244,7 +248,7 @@ FUNC(boolean, FLS_CODE) Fls_HwCompare(
     P2CONST(uint8, AUTOMATIC, FLS_APPL_DATA) src 
         = P2CONST(uint32, AUTOMATIC, FLS_APPL_DATA) sourceAddress;
 
-    /* read data */
+    /* compare data */
     while (length > 0U)
     {
         if (*dest++ != *src++)
